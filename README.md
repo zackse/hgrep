@@ -1,7 +1,7 @@
 hgrep
 =====
 
-Preserve headers when `grep`ping: emit the first line of input, then execute
+Preserve headers when `grep`-ping: emit the first line of input, then execute
 `grep(1)`.
 
 Installation

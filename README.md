@@ -1,22 +1,29 @@
 hgrep
 =====
 
-Preserve headers when `grep`-ping: emit the first line of input, then execute
+Preserve headers when `grep`-ping: emit the first N lines of input, then execute
 `grep(1)`.
 
 Installation
 ------------
 
-    go get github.com/zackse/hgrep
+    go install github.com/zackse/hgrep
 
 Description
 -----------
 
-This program reads from standard input and emits the first line, then executes
+This program reads from standard input and emits the first N (default 1) lines, then executes
 `grep` with any supplied arguments. It assumes newline is the line delimiter.
 
-This is useful for printing the header line of ps/lsof/netstat/etc.
-output when searching for a process pattern.
+This is useful for preserving the header line(s) of ps/lsof/netstat/etc.
+output when searching for a pattern in the body of output.
+
+Usage
+-----
+
+```bash
+$ hgrep [-n LINES] grep_args ... < input
+```
 
 Example
 -------
@@ -49,36 +56,38 @@ smbd      2947            root   38u  IPv4   27530      0t0  TCP *:139 (LISTEN)
 Alternatives
 ------------
 
-You could replace this code with a shell function wrapper around Perl, for example:
-
-```bash
-hgrep () {
-    perl -e '
-        my $c;
-        while (sysread(STDIN, $c, 1)) {
-            print $c;
-            last if $c eq "\n";
-        }
-        exec("grep", @ARGV) or die "exec(grep): $!"
-    ' -- "$@"
-}
-```
-
-Or a Perl script alone:
+You could implement this with Perl, for example:
 
 ```perl
 #!/usr/bin/perl
 
-$|++;
-use strict;
-
+BEGIN {
+  # allow "-n 2", for example
+  $HEADER_LINES = ($ARGV[0] =~ /^-+n/ && shift @ARGV && shift @ARGV) || 1;
+}
 my $c;
 while (sysread(STDIN, $c, 1)) {
-    print $c;
-    last if $c eq "\n";
+  print $c;
+  $lines_seen++ if $c eq "\n";
+  last if $lines_seen == $HEADER_LINES;
 }
-
 exec("grep", @ARGV) or die "exec(grep): $!"
+```
+
+Or bash:
+
+```bash
+hgrep() {
+    local lines=1
+    if [ "$1" = "-n" ]; then
+        lines=${2:-1}
+        shift
+        shift
+    fi
+    exec 3>&1
+    tee >(head -n $lines >&3) | grep "$@"
+    exec 3>&-
+}
 ```
 
 License
